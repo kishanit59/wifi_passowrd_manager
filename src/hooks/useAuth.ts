@@ -10,8 +10,14 @@ export const useAuth = () => {
   const hasShownInitialToast = useRef(false)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     // Get initial session
     const getSession = async () => {
+      if (!supabase) return
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
       previousUserRef.current = session?.user ?? null
@@ -21,16 +27,16 @@ export const useAuth = () => {
     getSession()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = supabase!.auth.onAuthStateChange(
       async (event, session) => {
         const newUser = session?.user ?? null
         const previousUser = previousUserRef.current
-        
+
         // Only update state if user actually changed
         if (newUser?.id !== previousUser?.id) {
           setUser(newUser)
           previousUserRef.current = newUser
-          
+
           // Show toast only for actual state changes, not initial load
           if (!loading && hasShownInitialToast.current) {
             if (event === 'SIGNED_IN' && newUser && !previousUser) {
@@ -39,10 +45,10 @@ export const useAuth = () => {
               toast.success('Successfully signed out!')
             }
           }
-          
+
           hasShownInitialToast.current = true
         }
-        
+
         setLoading(false)
       }
     )
@@ -51,6 +57,10 @@ export const useAuth = () => {
   }, [loading])
 
   const signUp = async (email: string, password: string) => {
+    if (!supabase) {
+      toast.error('Supabase not configured')
+      return
+    }
     try {
       setLoading(true)
       const { error } = await supabase.auth.signUp({
@@ -71,6 +81,10 @@ export const useAuth = () => {
   }
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      toast.error('Supabase not configured')
+      return
+    }
     try {
       setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({
@@ -87,6 +101,7 @@ export const useAuth = () => {
   }
 
   const signOut = async () => {
+    if (!supabase) return
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
