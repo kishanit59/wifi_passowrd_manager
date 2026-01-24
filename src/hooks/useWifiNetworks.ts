@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { storage } from '../lib/storage'
 import { encryptPassword, decryptPassword } from '../lib/encryption'
 import toast from 'react-hot-toast'
 
@@ -17,21 +17,18 @@ export const useWifiNetworks = (userId: string | undefined) => {
   const [networks, setNetworks] = useState<WifiNetwork[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchNetworks = async () => {
-    if (!userId) return
+  const fetchNetworks = () => {
+    if (!userId) {
+      setNetworks([])
+      setLoading(false)
+      return
+    }
 
     try {
-      const { data, error } = await supabase
-        .from('wifi_networks')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      const decryptedNetworks = data.map(network => ({
+      const storedNetworks = storage.getNetworks(userId)
+      const decryptedNetworks = storedNetworks.map(network => ({
         ...network,
-        password: decryptPassword(network.encrypted_password)
+        password: decryptPassword(network.password)
       }))
 
       setNetworks(decryptedNetworks)
@@ -51,26 +48,23 @@ export const useWifiNetworks = (userId: string | undefined) => {
     if (!userId) return
 
     try {
-      const { data, error } = await supabase
-        .from('wifi_networks')
-        .insert({
-          user_id: userId,
-          network_name: networkData.network_name,
-          encrypted_password: encryptPassword(networkData.password),
-          location: networkData.location || null,
-          notes: networkData.notes || null
-        })
-        .select()
-        .single()
+      const now = new Date().toISOString()
+      const newNetwork: WifiNetwork = {
+        id: crypto.randomUUID(),
+        ...networkData,
+        password: encryptPassword(networkData.password),
+        created_at: now,
+        updated_at: now
+      }
 
-      if (error) throw error
+      storage.addNetwork(userId, newNetwork)
 
-      const newNetwork = {
-        ...data,
+      const displayNetwork = {
+        ...newNetwork,
         password: networkData.password
       }
 
-      setNetworks(prev => [newNetwork, ...prev])
+      setNetworks(prev => [displayNetwork, ...prev])
       toast.success('Network added successfully!')
     } catch (error) {
       toast.error('Failed to add network')
@@ -79,33 +73,22 @@ export const useWifiNetworks = (userId: string | undefined) => {
   }
 
   const updateNetwork = async (id: string, networkData: Partial<Omit<WifiNetwork, 'id' | 'created_at' | 'updated_at'>>) => {
+    if (!userId) return
+
     try {
-      const updateData: any = {
+      const updates: any = {
         ...networkData,
         updated_at: new Date().toISOString()
       }
 
       if (networkData.password) {
-        updateData.encrypted_password = encryptPassword(networkData.password)
-        delete updateData.password
+        updates.password = encryptPassword(networkData.password)
       }
 
-      const { data, error } = await supabase
-        .from('wifi_networks')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single()
+      storage.updateNetwork(userId, id, updates)
 
-      if (error) throw error
-
-      const updatedNetwork = {
-        ...data,
-        password: networkData.password || networks.find(n => n.id === id)?.password || ''
-      }
-
-      setNetworks(prev => prev.map(network => 
-        network.id === id ? updatedNetwork : network
+      setNetworks(prev => prev.map(network =>
+        network.id === id ? { ...network, ...networkData } : network
       ))
       toast.success('Network updated successfully!')
     } catch (error) {
@@ -115,14 +98,10 @@ export const useWifiNetworks = (userId: string | undefined) => {
   }
 
   const deleteNetwork = async (id: string) => {
+    if (!userId) return
+
     try {
-      const { error } = await supabase
-        .from('wifi_networks')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
+      storage.deleteNetwork(userId, id)
       setNetworks(prev => prev.filter(network => network.id !== id))
       toast.success('Network deleted successfully!')
     } catch (error) {

@@ -13,7 +13,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (isSignUp) {
       if (password !== confirmPassword) {
         return // Error will be shown by validation
@@ -21,7 +21,11 @@ export const LoginScreen: React.FC = () => {
       if (password.length < 6) {
         return // Error will be shown by validation
       }
-      await signUp(email, password)
+      const success = await signUp(email, password)
+      if (success) {
+        setIsSignUp(false)
+        setConfirmPassword('')
+      }
     } else {
       await signIn(email, password)
     }
@@ -92,9 +96,8 @@ export const LoginScreen: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className={`w-full pr-10 pl-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    isSignUp && !passwordValid && password ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                  }`}
+                  className={`w-full pr-10 pl-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${isSignUp && !passwordValid && password ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
+                    }`}
                   placeholder="Enter your password"
                 />
                 <button
@@ -123,9 +126,8 @@ export const LoginScreen: React.FC = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={6}
-                    className={`w-full pr-10 pl-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                      !passwordsMatch ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className={`w-full pr-10 pl-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${!passwordsMatch ? 'border-red-500 dark:border-red-400' : 'border-gray-300 dark:border-gray-600'
+                      }`}
                     placeholder="Confirm your password"
                   />
                   <button
